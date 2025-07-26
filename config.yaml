@@ -1,0 +1,24 @@
+user:
+  name: "Bhanu Reddy"
+  location: "Bengaluru,IN"   # for weather API
+
+ui:
+  layout: at_a_glance
+  min_width: 100
+  tile_height: 7
+
+widgets:
+  weather:
+    ttl: 600s
+    api_key: "YOUR_OWM_API_KEY"
+  news:
+    ttl: 600s
+    tags: [golang, security, ai]
+    provider: hn        # hn | devto | newsapi
+  slack:
+    ttl: 20s
+  confluence:
+    ttl: 300s
+  jira:
+    ttl: 45s
+    log_work: true 
