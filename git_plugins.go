@@ -15,40 +15,40 @@ import (
 
 // GitCommit represents a Git commit
 type GitCommit struct {
-	Hash      string    `json:"hash"`
-	Message   string    `json:"message"`
-	Author    string    `json:"author"`
-	Date      time.Time `json:"date"`
-	Repository string   `json:"repository"`
+	Hash       string    `json:"hash"`
+	Message    string    `json:"message"`
+	Author     string    `json:"author"`
+	Date       time.Time `json:"date"`
+	Repository string    `json:"repository"`
 }
 
 // GitPullRequest represents a GitHub Pull Request
 type GitPullRequest struct {
-	Number      int       `json:"number"`
-	Title       string    `json:"title"`
-	State       string    `json:"state"`
-	Author      string    `json:"author"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
-	Repository  string    `json:"repository"`
-	URL         string    `json:"url"`
-	IsDraft     bool      `json:"draft"`
-	Mergeable   *bool     `json:"mergeable"`
+	Number     int       `json:"number"`
+	Title      string    `json:"title"`
+	State      string    `json:"state"`
+	Author     string    `json:"author"`
+	CreatedAt  time.Time `json:"created_at"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	Repository string    `json:"repository"`
+	URL        string    `json:"url"`
+	IsDraft    bool      `json:"draft"`
+	Mergeable  *bool     `json:"mergeable"`
 }
 
 // LocalGitCommitsPlugin fetches commits from local Git repositories
 type LocalGitCommitsPlugin struct {
-	id            string
-	pluginType    string
-	name          string
-	version       string
-	description   string
-	author        string
-	gitUser       string
-	gitEmail      string
-	repositories  []string
-	client        *http.Client
-	lastData      []GitCommit
+	id           string
+	pluginType   string
+	name         string
+	version      string
+	description  string
+	author       string
+	gitUser      string
+	gitEmail     string
+	repositories []string
+	client       *http.Client
+	lastData     []GitCommit
 }
 
 // NewLocalGitCommitsPlugin creates a new local Git commits plugin
@@ -188,7 +188,7 @@ func (lgc *LocalGitCommitsPlugin) getCommitsFromRepo(ctx context.Context, repoPa
 
 	var commits []GitCommit
 	lines := strings.Split(strings.TrimSpace(string(output)), "\n")
-	
+
 	repoName := filepath.Base(repoPath)
 	if repoName == "." {
 		// Get current directory name
@@ -302,8 +302,8 @@ func (gpr *GitHubPRsPlugin) GetMetadata() PluginMetadata {
 		Author:      gpr.author,
 		Type:        gpr.pluginType,
 		Config: map[string]string{
-			"github_user":       gpr.githubUser,
-			"has_github_token":  fmt.Sprintf("%t", gpr.githubToken != ""),
+			"github_user":      gpr.githubUser,
+			"has_github_token": fmt.Sprintf("%t", gpr.githubToken != ""),
 		},
 	}
 }
@@ -352,16 +352,16 @@ func (gpr *GitHubPRsPlugin) Fetch(ctx context.Context) (interface{}, error) {
 
 	var searchResult struct {
 		Items []struct {
-			Number      int       `json:"number"`
-			Title       string    `json:"title"`
-			State       string    `json:"state"`
-			User        struct {
+			Number int    `json:"number"`
+			Title  string `json:"title"`
+			State  string `json:"state"`
+			User   struct {
 				Login string `json:"login"`
 			} `json:"user"`
-			CreatedAt time.Time `json:"created_at"`
-			UpdatedAt time.Time `json:"updated_at"`
-			HTMLURL   string    `json:"html_url"`
-			Draft     bool      `json:"draft"`
+			CreatedAt  time.Time `json:"created_at"`
+			UpdatedAt  time.Time `json:"updated_at"`
+			HTMLURL    string    `json:"html_url"`
+			Draft      bool      `json:"draft"`
 			Repository struct {
 				Name string `json:"name"`
 			} `json:"repository"`

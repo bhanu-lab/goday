@@ -34,8 +34,8 @@ type fetchNewsCmd struct{}
 type fetchGitCommitsCmd struct{}
 type fetchGitHubPRsCmd struct{}
 
-func (fetchWeatherCmd) String() string   { return "fetch weather" }
-func (fetchNewsCmd) String() string      { return "fetch news" }
+func (fetchWeatherCmd) String() string    { return "fetch weather" }
+func (fetchNewsCmd) String() string       { return "fetch news" }
 func (fetchGitCommitsCmd) String() string { return "fetch git commits" }
 func (fetchGitHubPRsCmd) String() string  { return "fetch github prs" }
 
@@ -382,9 +382,9 @@ func (m Model) Init() tea.Cmd {
 		tickWeather(),
 		tickNews(),
 		func() tea.Msg { return fetchNewsCmd{} }, // Immediate news fetch
-		func() tea.Msg { return fetchWeatherCmd{} }, // Immediate weather fetch
+		func() tea.Msg { return fetchWeatherCmd{} },    // Immediate weather fetch
 		func() tea.Msg { return fetchGitCommitsCmd{} }, // Immediate git commits fetch
-		func() tea.Msg { return fetchGitHubPRsCmd{} }, // Immediate GitHub PRs fetch
+		func() tea.Msg { return fetchGitHubPRsCmd{} },  // Immediate GitHub PRs fetch
 		tea.EnterAltScreen,
 	)
 }
@@ -620,7 +620,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if exists {
 			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 			defer cancel()
-			
+
 			data, err := gitPlugin.Fetch(ctx)
 			if err == nil {
 				if commits, ok := data.([]GitCommit); ok {
@@ -628,7 +628,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
-		
+
 		return m, tea.Batch(
 			tea.Tick(5*time.Minute, func(t time.Time) tea.Msg { return fetchGitCommitsCmd{} }),
 		)
@@ -638,7 +638,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if exists {
 			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 			defer cancel()
-			
+
 			data, err := githubPlugin.Fetch(ctx)
 			if err == nil {
 				if prs, ok := data.([]GitPullRequest); ok {
@@ -646,7 +646,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
-		
+
 		return m, tea.Batch(
 			tea.Tick(5*time.Minute, func(t time.Time) tea.Msg { return fetchGitHubPRsCmd{} }),
 		)
