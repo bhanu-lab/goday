@@ -15,8 +15,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-var defaultConfigPath = "config.yaml"
-
 const (
 	clockInterval   = 60 * time.Second
 	weatherInterval = 600 * time.Second
@@ -33,11 +31,15 @@ type fetchWeatherCmd struct{}
 type fetchNewsCmd struct{}
 type fetchGitCommitsCmd struct{}
 type fetchGitHubPRsCmd struct{}
+type fetchTrafficCmd struct{}
+type fetchCalendarCmd struct{}
 
 func (fetchWeatherCmd) String() string    { return "fetch weather" }
 func (fetchNewsCmd) String() string       { return "fetch news" }
 func (fetchGitCommitsCmd) String() string { return "fetch git commits" }
 func (fetchGitHubPRsCmd) String() string  { return "fetch github prs" }
+func (fetchTrafficCmd) String() string    { return "fetch traffic" }
+func (fetchCalendarCmd) String() string   { return "fetch calendar" }
 
 // openURL opens a URL in the default browser
 func openURL(url string) error {
@@ -220,12 +222,15 @@ type Model struct {
 }
 
 func initialModel() Model {
-	cfg, err := LoadConfig(defaultConfigPath)
+	cfg, err := LoadConfigFromDefaultPath()
 	userName := "Unknown User"
 	location := "Bengaluru,IN"
 	if err == nil && cfg != nil {
 		userName = cfg.User.Name
 		location = cfg.User.Location
+	} else {
+		// Log the error but continue with defaults
+		fmt.Printf("Warning: Could not load config: %v\n", err)
 	}
 
 	widgetManager := NewWidgetManager()
@@ -255,6 +260,26 @@ func initialModel() Model {
 			"tags":        cfg.Widgets.News.Tags,
 			"current_tag": "all",
 		}
+
+		// Configure traffic plugin (OSRM - no API key needed)
+		pluginConfig.Plugins["osrm_traffic"] = map[string]interface{}{
+			"origin":      cfg.Widgets.Traffic.Origin,
+			"destination": cfg.Widgets.Traffic.Destination,
+		}
+
+		// Configure calendar plugin
+		calendarConfig := map[string]interface{}{
+			"max_events": cfg.Widgets.Calendar.MaxEvents,
+			"days_ahead": cfg.Widgets.Calendar.DaysAhead,
+		}
+		// Add credentials_file and token_file if provided in config
+		if cfg.Widgets.Calendar.CredentialsFile != "" {
+			calendarConfig["credentials_file"] = cfg.Widgets.Calendar.CredentialsFile
+		}
+		if cfg.Widgets.Calendar.TokenFile != "" {
+			calendarConfig["token_file"] = cfg.Widgets.Calendar.TokenFile
+		}
+		pluginConfig.Plugins["google-calendar"] = calendarConfig
 	} else {
 		// Default config when no config file is found
 		defaultTags := []string{"golang", "security", "ai"}
@@ -275,6 +300,18 @@ func initialModel() Model {
 		pluginConfig.Plugins["aggregate-news"] = map[string]interface{}{
 			"tags":        defaultTags,
 			"current_tag": "all",
+		}
+
+		// Configure traffic plugin with defaults (OSRM - no API key needed)
+		pluginConfig.Plugins["osrm_traffic"] = map[string]interface{}{
+			"origin":      "Electronic City, Bengaluru, Karnataka, India",
+			"destination": "Whitefield, Bengaluru, Karnataka, India",
+		}
+
+		// Configure calendar plugin with defaults
+		pluginConfig.Plugins["google-calendar"] = map[string]interface{}{
+			"max_events": 10,
+			"days_ahead": 7,
 		}
 	}
 
@@ -310,6 +347,14 @@ func initialModel() Model {
 	pluginManager.RegisterPlugin(gitCommitsPlugin)
 	pluginManager.RegisterPlugin(githubPRsPlugin)
 
+	// Create Traffic plugin (OSRM - no API key required)
+	trafficPlugin := NewOSRMTrafficPlugin()
+	pluginManager.RegisterPlugin(trafficPlugin)
+
+	// Create Google Calendar plugin
+	calendarPlugin := NewGoogleCalendarPlugin()
+	pluginManager.RegisterPlugin(calendarPlugin)
+
 	scheduler := NewScheduler()
 
 	// Add scheduled tasks for each widget with their TTL
@@ -319,6 +364,8 @@ func initialModel() Model {
 		scheduler.AddTask("slack", ParseTTL(cfg.Widgets.Slack.TTL), nil)
 		scheduler.AddTask("confluence", ParseTTL(cfg.Widgets.Confluence.TTL), nil)
 		scheduler.AddTask("jira", ParseTTL(cfg.Widgets.Jira.TTL), nil)
+		scheduler.AddTask("traffic", ParseTTL(cfg.Widgets.Traffic.TTL), trafficPlugin)
+		scheduler.AddTask("calendar", ParseTTL(cfg.Widgets.Calendar.TTL), calendarPlugin)
 	} else {
 		// Default TTL values when no config
 		scheduler.AddTask("weather", 600*time.Second, weatherPlugin)
@@ -326,6 +373,8 @@ func initialModel() Model {
 		scheduler.AddTask("slack", 20*time.Second, nil)
 		scheduler.AddTask("confluence", 300*time.Second, nil)
 		scheduler.AddTask("jira", 45*time.Second, nil)
+		scheduler.AddTask("traffic", 300*time.Second, trafficPlugin)
+		scheduler.AddTask("calendar", 300*time.Second, calendarPlugin)
 	}
 
 	// Create widget tiles with fixed sizes
@@ -340,10 +389,11 @@ func initialModel() Model {
 		NewWidgetTile("Confluence", baseTileWidth, baseTileHeight),
 		NewWidgetTile("PagerDuty", baseTileWidth, baseTileHeight),
 		NewWidgetTile("Tech News", baseTileWidth, baseTileHeight),
+		NewWidgetTile("Traffic", baseTileWidth, baseTileHeight),
 	}
 
 	// Populate widgets with data
-	widgetNames := []string{"jira", "prs", "builds", "commits", "calendar", "slack", "todos", "confluence", "pagerduty", "news"}
+	widgetNames := []string{"jira", "prs", "builds", "commits", "calendar", "slack", "todos", "confluence", "pagerduty", "news", "traffic"}
 	for i, name := range widgetNames {
 		if widget, exists := widgetManager.Widgets[name]; exists {
 			var items []WidgetItem
@@ -385,6 +435,8 @@ func (m Model) Init() tea.Cmd {
 		func() tea.Msg { return fetchWeatherCmd{} },    // Immediate weather fetch
 		func() tea.Msg { return fetchGitCommitsCmd{} }, // Immediate git commits fetch
 		func() tea.Msg { return fetchGitHubPRsCmd{} },  // Immediate GitHub PRs fetch
+		func() tea.Msg { return fetchTrafficCmd{} },    // Immediate traffic fetch
+		func() tea.Msg { return fetchCalendarCmd{} },   // Immediate calendar fetch
 		tea.EnterAltScreen,
 	)
 }
@@ -650,6 +702,121 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.Batch(
 			tea.Tick(5*time.Minute, func(t time.Time) tea.Msg { return fetchGitHubPRsCmd{} }),
 		)
+	case fetchTrafficCmd:
+		// Fetch traffic data using OSRM plugin
+		trafficPlugin, exists := m.pluginManager.GetRegistry().GetPlugin("osrm_traffic")
+		if exists {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+
+			data, err := trafficPlugin.Fetch(ctx)
+			if err == nil {
+				if biTraffic, ok := data.(*BiDirectionalTrafficData); ok {
+					m.widgetManager.UpdateBiDirectionalTrafficWidget(biTraffic)
+					// Update the traffic widget (index 10)
+					if len(m.widgets) > 10 {
+						if widget, exists := m.widgetManager.Widgets["traffic"]; exists {
+							var items []WidgetItem
+							for _, item := range widget.Items {
+								items = append(items, WidgetItem{
+									Title:    item.Title,
+									Subtitle: item.Subtitle,
+									Status:   item.Status,
+									URL:      item.URL,
+								})
+							}
+							m.widgets[10].UpdateItems(items)
+							m.widgets[10].hasError = widget.HasError
+						}
+					}
+				} else if traffic, ok := data.(*TrafficData); ok {
+					// Fallback for single direction traffic data
+					m.widgetManager.UpdateTrafficWidget(traffic)
+					// Update the traffic widget (index 10)
+					if len(m.widgets) > 10 {
+						if widget, exists := m.widgetManager.Widgets["traffic"]; exists {
+							var items []WidgetItem
+							for _, item := range widget.Items {
+								items = append(items, WidgetItem{
+									Title:    item.Title,
+									Subtitle: item.Subtitle,
+									Status:   item.Status,
+									URL:      item.URL,
+								})
+							}
+							m.widgets[10].UpdateItems(items)
+							m.widgets[10].hasError = widget.HasError
+						}
+					}
+				}
+			} else {
+				// Update traffic widget to show error
+				if len(m.widgets) > 10 {
+					m.widgets[10].UpdateItems([]WidgetItem{
+						{Title: "Traffic unavailable", Subtitle: err.Error(), Status: "❌"},
+					})
+					m.widgets[10].hasError = true
+				}
+			}
+		}
+
+		return m, tea.Batch(
+			tea.Tick(5*time.Minute, func(t time.Time) tea.Msg { return fetchTrafficCmd{} }),
+		)
+	case fetchCalendarCmd:
+		// Fetch calendar data using Google Calendar plugin
+		calendarPlugin, exists := m.pluginManager.GetRegistry().GetPlugin("google-calendar")
+		if exists {
+			ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+			defer cancel()
+
+			data, err := calendarPlugin.Fetch(ctx)
+			if err == nil {
+				if events, ok := data.([]GoogleCalendarEvent); ok && len(events) > 0 {
+					// Type assert to GoogleCalendarPlugin to access FormatEventsForDisplay
+					if gcPlugin, ok := calendarPlugin.(*GoogleCalendarPlugin); ok {
+						m.widgetManager.UpdateCalendarWidget(gcPlugin)
+						// Update the calendar widget (index 4)
+						if len(m.widgets) > 4 {
+							if widget, exists := m.widgetManager.Widgets["calendar"]; exists {
+								var items []WidgetItem
+								for _, item := range widget.Items {
+									items = append(items, WidgetItem{
+										Title:    item.Title,
+										Subtitle: item.Subtitle,
+										Status:   item.Status,
+										URL:      item.URL,
+									})
+								}
+								m.widgets[4].UpdateItems(items)
+								m.widgets[4].hasError = widget.HasError
+							}
+						}
+					}
+				}
+			} else {
+				// Update calendar widget to show error
+				if len(m.widgets) > 4 {
+					// Check if it's an OAuth error requiring setup
+					errorMsg := err.Error()
+					if strings.Contains(errorMsg, "credentials") || strings.Contains(errorMsg, "oauth") {
+						m.widgets[4].UpdateItems([]WidgetItem{
+							{Title: "Calendar Setup Required", Subtitle: "See ~/.goday/google_calendar_credentials.json", Status: "🔧"},
+							{Title: "Setup Guide", Subtitle: "Check console.cloud.google.com", Status: "📋"},
+						})
+					} else {
+						m.widgets[4].UpdateItems([]WidgetItem{
+							{Title: "Calendar unavailable", Subtitle: errorMsg, Status: "❌"},
+						})
+					}
+					m.widgets[4].hasError = true
+				}
+			}
+		}
+
+		return m, tea.Batch(
+			tea.Tick(5*time.Minute, func(t time.Time) tea.Msg { return fetchCalendarCmd{} }),
+		)
 	}
 
 	// Handle list updates for the focused widget
@@ -701,16 +868,50 @@ func (m Model) View() string {
 		Italic(true).
 		Padding(1, 2)
 
-	legend := legendStyle.Render("Legend: [w] log work; Enter opens link; ↑↓/jk navigate items; Tab/Shift+Tab moves focus; t/T cycles news tags")
+	legend := legendStyle.Render("Legend: [w] log work; Enter opens link; ↑↓/jk navigate items; Tab/Shift+Tab moves focus; t/T cycles news tags; r/R refresh")
+
+	// Get selected item URL for display
+	selectedURL := m.getSelectedItemURL()
+	urlDisplay := ""
+	if selectedURL != "" {
+		urlStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("33")).
+			Background(lipgloss.Color("236")).
+			Padding(0, 2).
+			Bold(true)
+		urlDisplay = urlStyle.Render(m.formatURLDisplay(selectedURL))
+	} else {
+		// Show focused widget info even when no URL
+		if m.focusedWidget < len(m.widgets) {
+			title, subtitle, _ := m.getSelectedItemDetails()
+			if title != "" {
+				infoStyle := lipgloss.NewStyle().
+					Foreground(lipgloss.Color("245")).
+					Background(lipgloss.Color("236")).
+					Padding(0, 2).
+					Italic(true)
+
+				widgetName := m.widgets[m.focusedWidget].title
+				info := fmt.Sprintf("[%s] %s", widgetName, title)
+				if subtitle != "" {
+					info += fmt.Sprintf(" • %s", subtitle)
+				}
+				urlDisplay = infoStyle.Render(info)
+			}
+		}
+	}
 
 	// Combine all parts without extra container
-	content := lipgloss.JoinVertical(lipgloss.Left,
-		header,
-		"", // Add some spacing
-		grid,
-		"", // Add some spacing
-		legend,
-	)
+	var contentParts []string
+	contentParts = append(contentParts, header, "", grid)
+
+	if urlDisplay != "" {
+		contentParts = append(contentParts, "", urlDisplay)
+	}
+
+	contentParts = append(contentParts, "", legend)
+
+	content := lipgloss.JoinVertical(lipgloss.Left, contentParts...)
 
 	return content
 }
@@ -793,7 +994,96 @@ func (m *Model) updateNewsWidget() {
 	}
 }
 
+// getSelectedItemURL returns the URL of the currently selected item
+func (m Model) getSelectedItemURL() string {
+	if m.focusedWidget >= len(m.widgets) {
+		return ""
+	}
+
+	selectedItem := m.widgets[m.focusedWidget].list.SelectedItem()
+	if selectedItem == nil {
+		return ""
+	}
+
+	if widgetItem, ok := selectedItem.(WidgetListItem); ok {
+		return widgetItem.URL
+	}
+
+	return ""
+}
+
+// formatURLDisplay formats the URL for display at the bottom
+func (m Model) formatURLDisplay(url string) string {
+	if url == "" {
+		return ""
+	}
+
+	// Get the focused widget name for context
+	widgetName := ""
+	if m.focusedWidget < len(m.widgets) {
+		widgetName = m.widgets[m.focusedWidget].title
+	}
+
+	// Truncate URL if it's too long
+	maxURLLength := m.terminalWidth - 30 // Leave space for prefix and widget name
+	if len(url) > maxURLLength {
+		url = url[:maxURLLength-3] + "..."
+	}
+
+	return fmt.Sprintf("[%s] → %s", widgetName, url)
+}
+
+// getSelectedItemDetails returns details of the currently selected item
+func (m Model) getSelectedItemDetails() (title, subtitle, url string) {
+	if m.focusedWidget >= len(m.widgets) {
+		return "", "", ""
+	}
+
+	selectedItem := m.widgets[m.focusedWidget].list.SelectedItem()
+	if selectedItem == nil {
+		return "", "", ""
+	}
+
+	if widgetItem, ok := selectedItem.(WidgetListItem); ok {
+		return widgetItem.ItemTitle, widgetItem.Subtitle, widgetItem.URL
+	}
+
+	return "", "", ""
+}
+
 func main() {
+	// Check for command line arguments
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "config", "--config", "-c":
+			configPath, err := GetConfigPath()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error getting config path: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Printf("Config file location: %s\n", configPath)
+
+			// Check if config exists
+			if _, err := os.Stat(configPath); os.IsNotExist(err) {
+				fmt.Println("Config file does not exist. Run './setup-config.sh' to create it.")
+			} else {
+				fmt.Println("Config file exists and ready to use.")
+			}
+			return
+		case "help", "--help", "-h":
+			fmt.Println("GoDay Terminal Dashboard")
+			fmt.Println("")
+			fmt.Println("Usage:")
+			fmt.Println("  goday              Start the dashboard")
+			fmt.Println("  goday config       Show config file location")
+			fmt.Println("  goday help         Show this help message")
+			fmt.Println("")
+			fmt.Println("Config file: ~/.goday/config.yaml")
+			fmt.Println("Setup:       ./setup-config.sh")
+			return
+		}
+	}
+
 	p := tea.NewProgram(initialModel())
 	if err := p.Start(); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)

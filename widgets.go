@@ -137,6 +137,15 @@ func (wm *WidgetManager) InitializeWidgets(cfg *Config) {
 			{Title: "Loading news...", Subtitle: "Fetching from HN & Dev.to", Status: "", URL: ""},
 		},
 	}
+
+	// Initialize Traffic widget
+	wm.Widgets["traffic"] = &Widget{
+		Title: "Traffic",
+		Count: 2,
+		Items: []WidgetItem{
+			{Title: "Loading traffic...", Subtitle: "Fetching both directions", Status: "", URL: ""},
+		},
+	}
 }
 
 func (wm *WidgetManager) CycleNewsTag() {
@@ -328,6 +337,149 @@ func (wm *WidgetManager) UpdateGitHubPRsWidget(prs []GitPullRequest) {
 	if wm.Widgets["prs"] != nil {
 		wm.Widgets["prs"].Items = items
 		wm.Widgets["prs"].Count = len(items)
+	}
+}
+
+// UpdateTrafficWidget updates the traffic widget with route information
+func (wm *WidgetManager) UpdateTrafficWidget(traffic *TrafficData) {
+	if wm.Widgets["traffic"] == nil {
+		return
+	}
+
+	if traffic == nil {
+		wm.Widgets["traffic"].Items = []WidgetItem{
+			{Title: "Traffic unavailable", Subtitle: "Check API key", Status: "❌", URL: ""},
+		}
+		wm.Widgets["traffic"].HasError = true
+		return
+	}
+
+	// Format direction indicator
+	directionIcon := "→"
+	if traffic.IsReversed {
+		directionIcon = "←"
+	}
+
+	// Format time with traffic indicator
+	trafficIndicator := ""
+	if traffic.DurationSec > 0 {
+		// Determine traffic level based on duration (this is a rough estimate)
+		if traffic.DurationSec > 3600 { // > 1 hour
+			trafficIndicator = "🔴 Heavy"
+		} else if traffic.DurationSec > 1800 { // > 30 min
+			trafficIndicator = "🟡 Moderate"
+		} else {
+			trafficIndicator = "🟢 Light"
+		}
+	}
+
+	route := fmt.Sprintf("%s %s %s", traffic.Origin, directionIcon, traffic.Destination)
+	subtitle := fmt.Sprintf("%s • %s", traffic.Duration, traffic.Distance)
+	if trafficIndicator != "" {
+		subtitle = fmt.Sprintf("%s • %s", subtitle, trafficIndicator)
+	}
+
+	wm.Widgets["traffic"].Items = []WidgetItem{
+		{
+			Title:    route,
+			Subtitle: subtitle,
+			Status:   "",
+			URL:      "", // Could add Google Maps URL if needed
+		},
+	}
+	wm.Widgets["traffic"].Count = 1
+	wm.Widgets["traffic"].HasError = false
+}
+
+// UpdateBiDirectionalTrafficWidget updates the traffic widget with both directions
+func (wm *WidgetManager) UpdateBiDirectionalTrafficWidget(biTraffic *BiDirectionalTrafficData) {
+	if wm.Widgets["traffic"] == nil {
+		return
+	}
+
+	if biTraffic == nil {
+		wm.Widgets["traffic"].Items = []WidgetItem{
+			{Title: "Traffic unavailable", Subtitle: "Check connection", Status: "❌", URL: ""},
+		}
+		wm.Widgets["traffic"].HasError = true
+		return
+	}
+
+	// Helper function to get traffic indicator
+	getTrafficIndicator := func(durationSec int) string {
+		if durationSec > 3600 { // > 1 hour
+			return "🔴 Heavy"
+		} else if durationSec > 1800 { // > 30 min
+			return "🟡 Moderate"
+		} else {
+			return "🟢 Light"
+		}
+	}
+
+	// Create items for both directions
+	var items []WidgetItem
+
+	// Origin to Destination
+	originToDest := biTraffic.OriginToDestination
+	route1 := fmt.Sprintf("%s → %s", originToDest.Origin, originToDest.Destination)
+	subtitle1 := fmt.Sprintf("%s • %s • %s", originToDest.Duration, originToDest.Distance, getTrafficIndicator(originToDest.DurationSec))
+	items = append(items, WidgetItem{
+		Title:    route1,
+		Subtitle: subtitle1,
+		Status:   "",
+		URL:      "",
+	})
+
+	// Destination to Origin
+	destToOrigin := biTraffic.DestinationToOrigin
+	route2 := fmt.Sprintf("%s → %s", destToOrigin.Origin, destToOrigin.Destination)
+	subtitle2 := fmt.Sprintf("%s • %s • %s", destToOrigin.Duration, destToOrigin.Distance, getTrafficIndicator(destToOrigin.DurationSec))
+	items = append(items, WidgetItem{
+		Title:    route2,
+		Subtitle: subtitle2,
+		Status:   "",
+		URL:      "",
+	})
+
+	wm.Widgets["traffic"].Items = items
+	wm.Widgets["traffic"].Count = len(items)
+	wm.Widgets["traffic"].HasError = false
+}
+
+// UpdateCalendarWidget updates the calendar widget with Google Calendar data
+func (wm *WidgetManager) UpdateCalendarWidget(calendarPlugin *GoogleCalendarPlugin) {
+	if wm.Widgets["calendar"] == nil {
+		wm.Widgets["calendar"] = &Widget{
+			Title: "Calendar",
+			Count: 0,
+			Items: []WidgetItem{},
+		}
+	}
+
+	// Get formatted events from the plugin
+	items := calendarPlugin.FormatEventsForDisplay()
+
+	wm.Widgets["calendar"].Items = items
+	wm.Widgets["calendar"].Count = len(items)
+
+	// Update title with status indicator
+	if len(items) > 0 {
+		// Check if there are any urgent events (happening now or soon)
+		hasUrgent := false
+		for _, item := range items {
+			if item.Status == "🔴" || item.Status == "🟡" {
+				hasUrgent = true
+				break
+			}
+		}
+
+		if hasUrgent {
+			wm.Widgets["calendar"].Title = "Calendar 🔔"
+		} else {
+			wm.Widgets["calendar"].Title = "Calendar"
+		}
+	} else {
+		wm.Widgets["calendar"].Title = "Calendar"
 	}
 }
 

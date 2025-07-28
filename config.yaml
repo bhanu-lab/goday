@@ -21,4 +21,24 @@ widgets:
     ttl: 300s
   jira:
     ttl: 45s
-    log_work: true 
+    log_work: true
+  traffic:
+    ttl: 300s  # 5 minutes refresh
+    # Option 1: Try with coordinates for reliability
+    origin:
+      latitude: 12.938073302563163
+      longitude: 77.7124699619538
+      name: "HOME"
+    destination:
+      latitude: 12.924750670796934
+      longitude: 77.67027589768634
+      name: "OFFICE"
+    
+    # Option 2: Alternative addresses (uncomment to use)
+    # origin: "Panathur, Bengaluru, Karnataka, India"
+    # destination: "Bellandur, Bengaluru, Karnataka, India"
+  calendar:
+    ttl: 300s  # 5 minutes refresh
+    max_events: 10
+    days_ahead: 7
+    # credentials_file and token_file will be auto-set to ~/.goday/

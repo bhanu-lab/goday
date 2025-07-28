@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GoDay Coordinate Finder</title>
+    <meta charset="utf-8">
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 20px;
+            background: #f5f5f5;
+        }
+        .container { 
+            max-width: 800px; 
+            margin: 0 auto; 
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 { 
+            color: #333; 
+            text-align: center;
+        }
+        .method {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        .coordinates {
+            background: #e8f5e8;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            border: 1px solid #28a745;
+        }
+        .yaml-config {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            border: 1px solid #6c757d;
+            white-space: pre-wrap;
+        }
+        .step {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+        .step::before {
+            content: "→ ";
+            color: #007bff;
+            font-weight: bold;
+        }
+        .tip {
+            background: #fff3cd;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #ffeaa7;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ GoDay Traffic Widget - Coordinate Finder</h1>
+        
+        <p>Get precise coordinates for your traffic widget configuration. No geocoding APIs needed!</p>
+
+        <div class="method">
+            <h3>🎯 Method 1: Google Maps (Recommended)</h3>
+            <div class="step">Open <a href="https://maps.google.com" target="_blank">Google Maps</a></div>
+            <div class="step">Search for your location (e.g., "Panathur, Bengaluru")</div>
+            <div class="step">Zoom in to the exact building/area</div>
+            <div class="step">Right-click on the precise location</div>
+            <div class="step">Click on the coordinates that appear (e.g., "12.9698, 77.7500")</div>
+            <div class="step">Copy the latitude and longitude</div>
+        </div>
+
+        <div class="method">
+            <h3>📱 Method 2: Google Maps Mobile</h3>
+            <div class="step">Open Google Maps app</div>
+            <div class="step">Search and navigate to your location</div>
+            <div class="step">Long press on the exact spot</div>
+            <div class="step">Tap the coordinates at the bottom</div>
+            <div class="step">Share or copy the coordinates</div>
+        </div>
+
+        <div class="method">
+            <h3>🌍 Method 3: What3Words</h3>
+            <div class="step">Go to <a href="https://what3words.com" target="_blank">what3words.com</a></div>
+            <div class="step">Search for your location</div>
+            <div class="step">Copy the precise coordinates shown</div>
+            <div class="tip">
+                <strong>💡 Tip:</strong> What3Words is accurate to 3m x 3m squares - very precise!
+            </div>
+        </div>
+
+        <div class="coordinates">
+            <h4>📍 Common Bangalore Area Coordinates:</h4>
+            <strong>Panathur:</strong> 12.9698, 77.7500<br>
+            <strong>Bellandur:</strong> 12.9279, 77.6271<br>
+            <strong>Electronic City:</strong> 12.8456, 77.6603<br>
+            <strong>Whitefield:</strong> 12.9698, 77.7500<br>
+            <strong>Koramangala:</strong> 12.9352, 77.6245<br>
+            <strong>Indiranagar:</strong> 12.9784, 77.6408<br>
+            <strong>HSR Layout:</strong> 12.9082, 77.6476<br>
+            <strong>Marathahalli:</strong> 12.9591, 77.7074<br>
+            <strong>MG Road:</strong> 12.9716, 77.5946<br>
+            <strong>Airport:</strong> 13.1986, 77.7066
+        </div>
+
+        <h3>⚙️ Configuration Template</h3>
+        <p>Once you have your coordinates, use this template in your <code>~/.goday/config.yaml</code>:</p>
+        
+        <div class="yaml-config">widgets:
+  traffic:
+    ttl: 300s
+    origin:
+      latitude: 12.9698  # Replace with your home coordinates
+      longitude: 77.7500
+      name: "Home"       # Custom display name
+    destination:
+      latitude: 12.9279  # Replace with your office coordinates
+      longitude: 77.6271
+      name: "Office"     # Custom display name</div>
+
+        <div class="tip">
+            <h4>🚀 Why Use Coordinates?</h4>
+            <ul>
+                <li><strong>100% Accurate:</strong> No geocoding errors</li>
+                <li><strong>Instant:</strong> No API delays</li>
+                <li><strong>Free:</strong> No API costs or rate limits</li>
+                <li><strong>Reliable:</strong> Always works</li>
+                <li><strong>Precise:</strong> Exact building location</li>
+            </ul>
+        </div>
+
+        <div class="method">
+            <h3>🔧 Testing Your Setup</h3>
+            <div class="step">Save your coordinates in <code>~/.goday/config.yaml</code></div>
+            <div class="step">Run <code>./goday</code> to test the traffic widget</div>
+            <div class="step">Check that both directions show route information</div>
+        </div>
+    </div>
+</body>
+</html>

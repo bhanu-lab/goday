@@ -18,12 +18,13 @@ A **single-view, zero-navigation** terminal dashboard that surfaces everything a
 - **PRs**: Pull requests with review status (interactive)
 - **Builds**: CI/CD status with error indicators (interactive)
 - **Commits**: Recent repository activity (interactive)
-- **Calendar**: Upcoming meetings and events (interactive)
+- **Calendar**: Gmail events with smart notifications and status indicators (Google Calendar API)
 - **Slack**: Unread messages and channels (interactive)
 - **Todos**: Personal task list (interactive)
 - **Confluence**: Recent documentation updates (interactive)
 - **PagerDuty**: On-call status (interactive)
 - **Tech News**: Live articles from multiple sources with tag filtering (interactive)
+- **Traffic**: Real-time commute information with direction toggle (interactive)
 
 ## Plugin Architecture
 
@@ -35,6 +36,8 @@ GoDay now uses a plugin-based architecture that makes it easy to add new data so
 - **DevToPlugin**: Fetches articles from Dev.to
 - **AggregateNewsPlugin**: Combines multiple news sources
 - **WeatherPlugin**: Gets weather data from OpenWeatherMap
+- **OSRMTrafficPlugin**: Real-time traffic data using OpenStreetMap (free)
+- **GoogleCalendarPlugin**: Gmail account calendar events via Google Calendar API
 
 ### Adding New Plugins
 
@@ -47,6 +50,46 @@ The system supports easy extension with new plugins. See [PLUGIN_GUIDE.md](PLUGI
 
 ## Installation
 
+### Quick Setup
+
+1. **Build the application:**
+```bash
+go build -o goday .
+```
+
+2. **Set up configuration:**
+```bash
+./setup-config.sh
+```
+This creates `~/.goday/config.yaml` with default settings.
+
+3. **Run GoDay:**
+```bash
+./goday
+```
+
+### Manual Configuration
+
+Your configuration file is located at `~/.goday/config.yaml`. If it doesn't exist, GoDay will create a default one on first run.
+
+**Configuration Directory Structure:**
+```
+~/.goday/
+├── config.yaml      # Main configuration
+└── cache/           # Cached data (auto-created)
+```
+
+### Configuration File Location
+
+GoDay looks for configuration in this order:
+1. `~/.goday/config.yaml` (recommended)
+2. `./config.yaml` (fallback for development)
+
+The configuration file supports both address strings and precise coordinates for traffic widgets.
+
+## Installation (Legacy)
+
+If you prefer to manage the config file manually:
 ```bash
 # Clone the repository
 git clone <repository-url>
@@ -206,6 +249,36 @@ goday/
 ├── PLUGIN_GUIDE.md      # Detailed plugin development guide
 ├── go.mod               # Go module dependencies
 └── README.md            # This file
+```
+
+## 📅 Google Calendar Integration
+
+GoDay supports Gmail account integration via Google Calendar API:
+
+### Quick Setup
+1. **Enable Google Calendar API** in Google Cloud Console
+2. **Create OAuth 2.0 credentials** (Desktop application)
+3. **Download JSON credentials** to `~/.goday/google_calendar_credentials.json`
+4. **Run GoDay** and complete OAuth flow
+5. **View your events** in the Calendar widget!
+
+### Features
+- 🔴 **Live status indicators** (ongoing, starting soon, future)
+- 📅 **Smart event display** (today's events show time, future events show date)
+- 🔔 **Urgent event notifications** (widget title changes when events are imminent)
+- ⚙️ **Configurable refresh** and event limits
+
+### Documentation
+- **[GOOGLE_CALENDAR_SETUP.md](GOOGLE_CALENDAR_SETUP.md)** - Complete setup guide
+- **[ADDRESS_CONFIGURATION_GUIDE.md](ADDRESS_CONFIGURATION_GUIDE.md)** - Traffic widget configuration
+
+### Configuration
+```yaml
+widgets:
+  calendar:
+    ttl: 300s        # Refresh every 5 minutes
+    max_events: 10   # Maximum events to show
+    days_ahead: 7    # Days ahead to fetch
 ```
 
 ## Contributing
